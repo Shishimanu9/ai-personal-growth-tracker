@@ -1,267 +1,562 @@
 import streamlit as st
-import pandas as pd
+import plotly.express as px
 from datetime import date
 
-from database import create_table
-from database import insert_entry
-from database import get_all_entries
+from yearly_report import (
+    generate_year_calendar,
+    render_yearly_growth_graph
+)
 
-from ml_model import calculate_growth_score
-from ml_model import analyze_sentiment
+from database import (
+    create_table,
+    insert_entry,
+    fetch_entries
+)
 
-from analytics import create_dataframe
-from analytics import growth_chart
-from analytics import mood_chart
+from analytics import (
+    calculate_growth_score,
+    create_dataframe,
+    generate_behavior_insights,
+    detect_burnout_risk,
+    predict_next_growth,
+    get_low_days          # ← add this line
+)
 
-# Create database table
-create_table()
+from ml_model import (
+    analyze_sentiment,
+    generate_ai_advice
+)
 
-# Streamlit Config
+
+# ─────────────────────────────────────────────────────────────
+# PAGE CONFIG
+# ─────────────────────────────────────────────────────────────
+
 st.set_page_config(
-    page_title="AI Personal Growth Tracker",
+    page_title="AI Personal Growth Tracker 2026",
     layout="wide"
 )
 
-st.title("AI Personal Growth Tracker 2026")
+create_table()
 
-# Sidebar Navigation
-menu = st.sidebar.selectbox(
+
+# ─────────────────────────────────────────────────────────────
+# CUSTOM CSS
+# ─────────────────────────────────────────────────────────────
+
+st.markdown("""
+<style>
+
+.main {
+    background-color: #0f172a;
+}
+
+.metric-card {
+    padding: 20px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #1e293b, #334155);
+    color: white;
+    text-align: center;
+}
+
+.big-title {
+    font-size: 38px;
+    font-weight: 800;
+}
+
+.insight-box {
+    padding: 18px;
+    border-radius: 14px;
+    background-color: #1e293b;
+    color: white;
+    margin-bottom: 10px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────
+# HEADER
+# ─────────────────────────────────────────────────────────────
+
+st.markdown(
+    "<div class='big-title'>AI Personal Growth Tracker 2026</div>",
+    unsafe_allow_html=True
+)
+
+st.write(
+    "Track mood, productivity, health, opportunities, and AI-based behavior patterns."
+)
+
+
+# ─────────────────────────────────────────────────────────────
+# SIDEBAR MENU
+# ─────────────────────────────────────────────────────────────
+
+menu = st.sidebar.radio(
     "Navigation",
     [
         "Daily Entry",
         "Dashboard",
-        "AI Analysis",
+        "AI Insights",
         "Year Summary"
     ]
 )
 
-# =========================
-# DAILY ENTRY
-# =========================
+
+# ─────────────────────────────────────────────────────────────
+# LOAD DATA
+# ─────────────────────────────────────────────────────────────
+
+rows = fetch_entries()
+df = create_dataframe(rows)
+
+
+# ─────────────────────────────────────────────────────────────
+# DAILY ENTRY PAGE
+# ─────────────────────────────────────────────────────────────
 
 if menu == "Daily Entry":
 
-    st.header("Daily Life Entry")
+    st.header("Daily Entry")
 
-    entry_date = st.date_input("Date", date.today())
+    with st.form("entry_form"):
 
-    mood = st.selectbox(
-        "Mood",
-        ["Positive", "Neutral", "Bad"]
-    )
-
-    energy = st.slider("Energy Level", 1, 10)
-
-    productivity = st.slider("Productivity", 1, 10)
-
-    sleep = st.slider("Sleep Hours", 0.0, 12.0, 6.0)
-
-    study_hours = st.slider("Study Hours", 0.0, 15.0, 2.0)
-
-    workout = st.selectbox(
-        "Workout Done",
-        ["Yes", "No"]
-    )
-
-    health = st.selectbox(
-        "Health Status",
-        ["Healthy", "Sick"]
-    )
-
-    opportunities_got = st.number_input(
-        "Opportunities Got",
-        min_value=0,
-        max_value=100,
-        value=0
-    )
-
-    opportunities_missed = st.number_input(
-        "Opportunities Missed",
-        min_value=0,
-        max_value=100,
-        value=0
-    )
-
-    notes = st.text_area("Notes")
-
-    if st.button("Save Entry"):
-
-        growth_score = calculate_growth_score(
-            productivity,
-            study_hours,
-            sleep,
-            energy,
-            opportunities_got,
-            opportunities_missed
+        entry_date = st.date_input(
+            "Date",
+            date.today()
         )
-
-        data = (
-            str(entry_date),
-            mood,
-            energy,
-            productivity,
-            sleep,
-            study_hours,
-            workout,
-            health,
-            opportunities_got,
-            opportunities_missed,
-            notes,
-            growth_score
-        )
-
-        insert_entry(data)
-
-        st.success("Entry Saved Successfully")
-
-        st.metric("Growth Score", growth_score)
-
-# =========================
-# DASHBOARD
-# =========================
-
-elif menu == "Dashboard":
-
-    st.header("Growth Dashboard")
-
-    rows = get_all_entries()
-
-    if len(rows) == 0:
-        st.warning("No data available")
-
-    else:
-
-        df = create_dataframe(rows)
-
-        st.dataframe(df)
-
-        st.plotly_chart(growth_chart(df))
-
-        st.plotly_chart(mood_chart(df))
-
-        st.subheader("Statistics")
-
-        avg_growth = df["growth_score"].mean()
-        avg_productivity = df["productivity"].mean()
-        avg_energy = df["energy"].mean()
 
         col1, col2, col3 = st.columns(3)
 
-        col1.metric("Average Growth", round(avg_growth, 2))
-        col2.metric("Average Productivity", round(avg_productivity, 2))
-        col3.metric("Average Energy", round(avg_energy, 2))
+        with col1:
 
-# =========================
-# AI ANALYSIS
-# =========================
+            mood = st.slider(
+                "Mood",
+                1,
+                10,
+                5
+            )
 
-elif menu == "AI Analysis":
+            energy = st.slider(
+                "Energy",
+                1,
+                10,
+                5
+            )
 
-    st.header("AI Behavioral Analysis")
+            productivity = st.slider(
+                "Productivity",
+                1,
+                10,
+                5
+            )
 
-    rows = get_all_entries()
+        with col2:
 
-    if len(rows) == 0:
-        st.warning("No data available")
+            sleep_hours = st.number_input(
+                "Sleep Hours",
+                0.0,
+                14.0,
+                7.0
+            )
+
+            study_hours = st.number_input(
+                "Study / Work Hours",
+                0.0,
+                16.0,
+                4.0
+            )
+
+            workout = st.checkbox(
+                "Workout Done?"
+            )
+
+        with col3:
+
+            health_status = st.selectbox(
+                "Health Status",
+                [
+                    "Healthy",
+                    "Sick",
+                    "Tired",
+                    "Stressed"
+                ]
+            )
+
+            opportunities_gained = st.number_input(
+                "Opportunities Gained",
+                0,
+                20,
+                0
+            )
+
+            opportunities_missed = st.number_input(
+                "Opportunities Missed",
+                0,
+                20,
+                0
+            )
+
+        notes = st.text_area(
+            "Personal Notes"
+        )
+        golden_day = st.checkbox(
+             " Mark this as a Golden Day", value=False)
+
+        submit = st.form_submit_button(
+            "Save Entry"
+        )
+
+        if submit:
+
+            growth_score = calculate_growth_score(
+                mood,
+                energy,
+                productivity,
+                sleep_hours,
+                study_hours,
+                int(workout),
+                opportunities_gained,
+                opportunities_missed
+            )
+
+            insert_entry((
+                str(entry_date),
+                mood,
+                energy,
+                productivity,
+                sleep_hours,
+                study_hours,
+                int(workout),
+                health_status,
+                opportunities_gained,
+                opportunities_missed,
+                notes,
+                int(golden_day),
+                growth_score
+            ))
+
+            st.success(
+                f"Entry saved. Growth Score: {growth_score}/10"
+            )
+
+
+# ─────────────────────────────────────────────────────────────
+# DASHBOARD PAGE
+# ─────────────────────────────────────────────────────────────
+
+elif menu == "Dashboard":
+
+    st.header("Dashboard Analytics")
+
+    if df.empty:
+
+        st.warning(
+            "No data found. Add daily entries first."
+        )
 
     else:
 
-        df = create_dataframe(rows)
+        total_entries = len(df)
 
-        sentiments = []
+        coverage_percent = (
+            total_entries / 365
+        ) * 100
 
-        for note in df["notes"]:
-            sentiments.append(analyze_sentiment(str(note)))
+        # TOP METRICS
 
-        df["sentiment"] = sentiments
+        col1, col2, col3 = st.columns(3)
 
-        avg_sentiment = df["sentiment"].mean()
+        col1.metric(
+            "Avg Growth Score",
+            round(
+                df["growth_score"].mean(),
+                2
+            )
+        )
 
-        st.subheader("Sentiment Score")
+        col2.metric(
+            "Days Tracked",
+            total_entries
+        )
 
-        st.metric("Average Sentiment", round(avg_sentiment, 2))
+        col3.metric(
+            "Year Coverage",
+            f"{coverage_percent:.1f}%"
+        )
 
-        positive_days = len(df[df["mood"] == "Positive"])
-        bad_days = len(df[df["mood"] == "Bad"])
+        st.markdown("")
 
-        st.subheader("AI Insights")
+        # SECONDARY METRICS
 
-        if avg_sentiment > 0:
-            st.success("Overall emotional state remained positive")
+        col4, col5, col6 = st.columns(3)
+
+        col4.metric(
+            "Avg Productivity",
+            round(
+                df["productivity"].mean(),
+                2
+            )
+        )
+
+        col5.metric(
+            "Avg Energy",
+            round(
+                df["energy"].mean(),
+                2
+            )
+        )
+
+        col6.metric(
+            "Avg Sleep",
+            round(
+                df["sleep_hours"].mean(),
+                2
+            )
+        )
+
+        # GROWTH GRAPH
+
+        st.subheader(
+            "Growth Progression"
+        )
+
+        fig = px.line(
+            df,
+            x="date",
+            y="growth_score",
+            markers=True
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+        # DAILY ENTRIES TABLE
+
+        st.subheader(
+            "📋 Daily Entries Log"
+        )
+
+        display_df = df[[
+            "date",
+            "mood",
+            "energy",
+            "productivity",
+            "sleep_hours",
+            "study_hours",
+            "growth_score",
+            "health_status"
+        ]].copy()
+
+        display_df.columns = [
+            "Date",
+            "Mood",
+            "Energy",
+            "Productivity",
+            "Sleep",
+            "Study",
+            "Growth Score",
+            "Health"
+        ]
+
+        display_df = display_df.sort_values(
+            by="Date",
+            ascending=False
+        )
+
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            height=500
+        )
+
+        # MOOD DISTRIBUTION
+
+        st.subheader(
+            "Mood Distribution"
+        )
+
+        fig2 = px.histogram(
+            df,
+            x="mood",
+            nbins=10
+        )
+
+        st.plotly_chart(
+            fig2,
+            use_container_width=True
+        )
+
+        # PRODUCTIVITY VS SLEEP
+
+        st.subheader(
+            "Productivity vs Sleep"
+        )
+
+        fig3 = px.scatter(
+            df,
+            x="sleep_hours",
+            y="productivity",
+            size="growth_score",
+            color="growth_score",
+            hover_data=["date"]
+        )
+
+        st.plotly_chart(
+            fig3,
+            use_container_width=True
+        )
+
+        # WEEKDAY PERFORMANCE
+
+        st.subheader(
+            "Weekday Performance"
+        )
+
+        weekday_avg = (
+            df.groupby("weekday")["growth_score"]
+            .mean()
+            .reset_index()
+        )
+
+        fig4 = px.bar(
+            weekday_avg,
+            x="weekday",
+            y="growth_score"
+        )
+
+        st.plotly_chart(
+            fig4,
+            use_container_width=True
+        )
+
+
+# ─────────────────────────────────────────────────────────────
+# AI INSIGHTS PAGE
+# ─────────────────────────────────────────────────────────────
+
+# This is just the AI Insights section — paste this into your app.py
+# replacing the existing "elif menu == AI Insights" block
+
+elif menu == "AI Insights":
+
+    st.header("AI Behavioral Insights")
+
+    if df.empty:
+        st.warning("No data available.")
+
+    else:
+        latest_note = df.iloc[-1]["notes"]
+        sentiment, polarity = analyze_sentiment(latest_note)
+        burnout_risk = detect_burnout_risk(df)
+        predicted_score = predict_next_growth(df)
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Latest Note Sentiment", sentiment)
+        col2.metric("Burnout Risk", burnout_risk)
+        col3.metric("Predicted Next Growth", predicted_score if predicted_score else "Need more data")
+
+        # ── Pattern Insights ──────────────────────────────────
+        st.subheader("🧠 AI Pattern Insights")
+        insights = generate_behavior_insights(df)
+        for insight in insights:
+            st.markdown(f"<div class='insight-box'>{insight}</div>", unsafe_allow_html=True)
+
+        # ── Low Days — the days you were struggling ───────────
+        st.subheader("🔴 Your Low Days — When You Were Struggling")
+
+        low_days = get_low_days(df)
+
+        if low_days.empty:
+            st.success("No low days found. You've been doing great!")
         else:
-            st.error("Negative emotional trend detected")
+            st.markdown(
+                f"<div class='insight-box'>You had <b>{len(low_days)}</b> low day(s) this year "
+                f"(growth score below 4). Here's what those days looked like:</div>",
+                unsafe_allow_html=True
+            )
 
-        if positive_days > bad_days:
-            st.success("You had more positive days than bad days")
-        else:
-            st.warning("Bad days exceeded positive days")
+            for _, row in low_days.iterrows():
+                score = row["growth_score"]
+                day_date = row["date"].date()
+                mood = row["mood"]
+                energy = row["energy"]
+                notes = row["notes"] if row["notes"] else "No notes written."
 
-        best_day = df.loc[df["growth_score"].idxmax()]
+                # Color the card by how bad the day was
+                if score < 2:
+                    border_color = "#FF3333"
+                    label = "Very Hard Day"
+                else:
+                    border_color = "#FF6B6B"
+                    label = "Low Day"
 
-        st.subheader("Best Growth Day")
+                st.markdown(f"""
+                <div style="
+                    background:#1e293b;
+                    border-left: 4px solid {border_color};
+                    border-radius: 12px;
+                    padding: 16px 20px;
+                    margin-bottom: 12px;
+                    color: white;
+                ">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:16px; font-weight:800;">📅 {day_date}</span>
+                        <span style="background:{border_color}; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700;">{label} — Score: {score}/10</span>
+                    </div>
+                    <div style="display:flex; gap:20px; font-size:13px; color:#94a3b8; margin-bottom:8px;">
+                        <span>😐 Mood: <b style="color:white;">{mood}/10</b></span>
+                        <span>⚡ Energy: <b style="color:white;">{energy}/10</b></span>
+                    </div>
+                    <div style="font-size:13px; color:#cbd5e1; font-style:italic;">"{notes}"</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-        st.write(best_day)
+            # What caused the low days — quick pattern
+            avg_mood_low = low_days["mood"].mean()
+            avg_energy_low = low_days["energy"].mean()
+            avg_sleep_low = low_days["sleep_hours"].mean()
 
-# =========================
-# YEAR SUMMARY
-# =========================
+            st.markdown(f"""
+            <div class='insight-box'>
+                <b>Pattern on your low days:</b><br>
+                Average Mood: {avg_mood_low:.1f}/10 &nbsp;|&nbsp;
+                Average Energy: {avg_energy_low:.1f}/10 &nbsp;|&nbsp;
+                Average Sleep: {avg_sleep_low:.1f} hrs
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ── AI Recommendations ────────────────────────────────
+        st.subheader("💡 AI Recommendations")
+        advice_list = generate_ai_advice(sentiment, burnout_risk, predicted_score)
+        for advice in advice_list:
+            st.info(advice)
+
+
+# ─────────────────────────────────────────────────────────────
+# YEAR SUMMARY PAGE
+# ─────────────────────────────────────────────────────────────
 
 elif menu == "Year Summary":
 
-    st.header("2026 Year Summary")
+    st.header(
+        "Your Yearly Growth Journey"
+    )
 
-    rows = get_all_entries()
+    if df.empty:
 
-    if len(rows) == 0:
-        st.warning("No data available")
+        st.warning(
+            "No data available."
+        )
 
     else:
 
-        df = create_dataframe(rows)
+        generate_year_calendar(df)
 
-        total_opportunities = df["opportunities_got"].sum()
-        total_missed = df["opportunities_missed"].sum()
+        st.markdown("---")
 
-        utilization = 0
-
-        if total_opportunities + total_missed > 0:
-
-            utilization = (
-                total_opportunities /
-                (total_opportunities + total_missed)
-            ) * 100
-
-        st.subheader("Opportunity Analysis")
-
-        st.metric(
-            "Opportunity Utilization %",
-            round(utilization, 2)
-        )
-
-        sick_days = len(df[df["health"] == "Sick"])
-
-        st.metric("Sick Days", sick_days)
-
-        total_growth = df["growth_score"].sum()
-
-        st.metric("Total Growth Score", round(total_growth, 2))
-
-        best_month = df.groupby(
-            pd.to_datetime(df["date"]).dt.month
-        )["growth_score"].mean().idxmax()
-
-        st.metric("Best Month", best_month)
-
-        st.subheader("Life Summary")
-
-        st.write(
-            f"You captured {len(df)} days of your 2026 journey."
-        )
-
-        st.write(
-            f"You utilized {round(utilization, 2)}% of your opportunities."
-        )
-
-        st.write(
-            "This AI tracker monitored emotional, productivity, health, and growth patterns throughout the year."
-        )
+        render_yearly_growth_graph(df)

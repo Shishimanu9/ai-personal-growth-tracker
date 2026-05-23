@@ -1,29 +1,37 @@
 from textblob import TextBlob
 
+def analyze_sentiment(note):
+   if not note or note.strip() == "":
+       return "Neutral", 0
 
-def calculate_growth_score(
-    productivity,
-    study_hours,
-    sleep,
-    energy,
-    opportunities_got,
-    opportunities_missed
-):
+   polarity = TextBlob(note).sentiment.polarity
 
-    score = (
-        productivity * 0.30 +
-        study_hours * 0.20 +
-        sleep * 0.10 +
-        energy * 0.20 +
-        opportunities_got * 10 -
-        opportunities_missed * 5
-    )
+   if polarity > 0.2:
+       label = "Positive"
+   elif polarity < -0.2:
+       label = "Negative"
+   else:
+       label = "Neutral"
 
-    return round(score, 2)
+   return label, round(polarity, 2)
 
 
-def analyze_sentiment(notes):
+def generate_ai_advice(sentiment, burnout_risk, predicted_score):
+   advice = []
 
-    analysis = TextBlob(notes)
+   if sentiment == "Negative":
+       advice.append("Your note sounds emotionally low. Try identifying the exact trigger behind today’s mood.")
 
-    return analysis.sentiment.polarity
+   if burnout_risk == "High burnout risk":
+       advice.append("You may be moving toward burnout. Reduce workload, improve sleep, and avoid overcommitting tomorrow.")
+
+   if predicted_score is not None:
+       if predicted_score >= 7:
+           advice.append("Your next growth score prediction looks strong. Continue your current routine.")
+       elif predicted_score < 5:
+           advice.append("Your next growth score may drop. Focus on sleep, hydration, and one important task only.")
+
+   if not advice:
+       advice.append("Your current pattern looks stable. Keep logging consistently.")
+
+   return advice
