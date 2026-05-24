@@ -3,161 +3,127 @@ import plotly.express as px
 from datetime import date
 from streamlit_option_menu import option_menu
 
-from yearly_report import (
-    generate_year_calendar,
-    render_yearly_growth_graph
-)
+st._config.set_option("theme.primaryColor", "#22c55e")
+st._config.set_option("theme.font", "sans serif")
 
-from database import (
-    create_table,
-    insert_entry,
-    fetch_entries
-)
+from yearly_report import generate_year_calendar, render_yearly_growth_graph
+from database import create_table, insert_entry, fetch_entries
+from analytics import calculate_growth_score, create_dataframe, generate_behavior_insights, detect_burnout_risk, predict_next_growth, get_low_days
+from ml_model import analyze_sentiment, generate_ai_advice
 
-from analytics import (
-    calculate_growth_score,
-    create_dataframe,
-    generate_behavior_insights,
-    detect_burnout_risk,
-    predict_next_growth,
-    get_low_days
-)
-
-from ml_model import (
-    analyze_sentiment,
-    generate_ai_advice
-)
-
-st.set_page_config(
-    page_title="AI Personal Growth Tracker 2026",
-    page_icon="🧠",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
+st.set_page_config(page_title="Growth Tracker", layout="wide", initial_sidebar_state="expanded")
 create_table()
 
 st.markdown("""
 <style>
-.stApp {
-    background: linear-gradient(135deg, #0f172a, #111827, #1e293b);
-    color: white;
-}
-#MainMenu { visibility: hidden; }
-footer { visibility: hidden; }
-header { visibility: hidden; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+* { font-family: 'Inter', sans-serif !important; }
+
+.stApp { background-color: #0a0a0f; color: #e2e8f0; }
+#MainMenu, footer, header { visibility: hidden; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #0a0a0f; }
+::-webkit-scrollbar-thumb { background: #2d2d3d; border-radius: 3px; }
+
+html, body { font-size: 18px !important; }
+p, li, td, th { font-size: 18px !important; line-height: 1.7 !important; }
+[data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span, .stSlider label, .stCheckbox label, .stSelectbox label, .stNumberInput label, .stTextArea label, .stDateInput label { font-size: 18px !important; font-weight: 600 !important; color: #94a3b8 !important; }
+h1 { font-size: 56px !important; font-weight: 800 !important; }
+h2 { font-size: 42px !important; font-weight: 700 !important; }
+h3 { font-size: 32px !important; font-weight: 700 !important; }
+h4 { font-size: 24px !important; font-weight: 600 !important; }
+button p { font-size: 18px !important; font-weight: 600 !important; }
+.stMarkdown p { font-size: 18px !important; }
+.stSlider [data-testid="stTickBarMin"], .stSlider [data-testid="stTickBarMax"] { font-size: 13px !important; color: #475569 !important; }
+.stSlider [data-testid="stThumbValue"] { font-size: 14px !important; font-weight: 700 !important; color: #22c55e !important; }
 
 /* ── Sidebar ── */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0d1f12 0%, #14532d 60%, #052e16 100%);
-    border-right: 1px solid rgba(74,222,128,0.2);
-    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    background: linear-gradient(160deg, #0d0d1a 0%, #120d2e 40%, #0d1020 100%);
+    border-right: 1px solid rgba(139,92,246,0.15);
 }
-section[data-testid="stSidebar"] * { color: #dcfce7 !important; }
-section[data-testid="stSidebar"] h2 { color: #4ade80 !important; text-shadow: 0 0 12px rgba(74,222,128,0.5); }
-section[data-testid="stSidebar"] .nav-link {
-    border-radius: 12px !important;
-    margin: 4px 8px !important;
-    transition: all 0.25s ease !important;
-    border: 1px solid transparent !important;
-}
-section[data-testid="stSidebar"] .nav-link:hover {
-    background: rgba(74,222,128,0.15) !important;
-    border: 1px solid rgba(74,222,128,0.35) !important;
-    transform: translateX(5px) !important;
-    box-shadow: 0 4px 14px rgba(74,222,128,0.25) !important;
-}
-section[data-testid="stSidebar"] .nav-link-selected {
-    background: linear-gradient(90deg, rgba(74,222,128,0.3), rgba(34,197,94,0.15)) !important;
-    border: 1px solid rgba(74,222,128,0.5) !important;
-    box-shadow: 0 4px 18px rgba(74,222,128,0.3) !important;
-}
-
-/* ── Titles ── */
-.big-title { font-size: 48px; font-weight: 900; color: #c4b5fd; margin-bottom: 10px; }
-
-/* ── Hero ── */
-.hero-section {
-    padding: 35px; border-radius: 24px;
-    background: linear-gradient(135deg, #312e81, #581c87);
-    color: white; margin-bottom: 25px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-}
-
-/* ── Metric Cards ── */
-.metric-card {
-    background: rgba(255,255,255,0.05); backdrop-filter: blur(12px);
-    padding: 25px; border-radius: 22px;
-    border: 1px solid rgba(255,255,255,0.08);
-    text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.25); margin-bottom: 20px;
-}
-.metric-card h3 { color: #cbd5e1; font-size: 16px; margin-bottom: 8px; }
-.metric-card h1 { color: white; font-size: 38px; font-weight: 800; }
-
-/* ── Insight Box ── */
-.insight-box {
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-    padding: 18px; border-radius: 18px; margin-bottom: 14px; color: white;
-}
-
-/* ── Buttons ── */
-.stButton>button {
-    width: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6);
-    color: white; border-radius: 14px; border: none; padding: 14px;
-    font-size: 16px; font-weight: 700;
-}
-
-/* ── Inputs ── */
-.stTextInput input, .stNumberInput input, textarea, .stDateInput input {
-    background-color: #1e293b !important; color: white !important; border-radius: 12px !important;
-}
-[data-testid="stDataFrame"] { border-radius: 18px; overflow: hidden; }
-.stTabs [data-baseweb="tab"] { font-size: 16px; font-weight: 600; }
-[data-testid="metric-container"] {
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-    padding: 15px; border-radius: 18px;
-}
-
-/* ── Snowfall canvas ── */
-#snowCanvas {
-    position: fixed; top: 0; left: 0;
-    width: 100%; height: 100%;
+section[data-testid="stSidebar"]::before {
+    content: ''; position: fixed; top: 0; left: 0; width: 260px; height: 100%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(109,40,217,0.18) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(139,92,246,0.1) 0%, transparent 50%);
     pointer-events: none; z-index: 0;
 }
+section[data-testid="stSidebar"] * { color: #ffffff !important; }
+section[data-testid="stSidebar"] .nav-link { border-radius: 10px !important; margin: 3px 8px !important; font-size: 20px !important; font-weight: 400 !important; transition: all 0.2s ease !important; border: 1px solid transparent !important; padding: 11px 14px !important; }
+section[data-testid="stSidebar"] .nav-link:hover { background: rgba(139,92,246,0.12) !important; color: #c4b5fd !important; border-color: rgba(139,92,246,0.25) !important; transform: translateX(3px) !important; }
+section[data-testid="stSidebar"] .nav-link-selected { background: rgba(139,92,246,0.18) !important; color: #c4b5fd !important; border-color: rgba(139,92,246,0.35) !important; font-weight: 700 !important; box-shadow: inset 0 0 20px rgba(139,92,246,0.08) !important; }
+section[data-testid="stSidebar"] .nav-link-selected * { color: #c4b5fd !important; }
+
+/* ── Hero ── */
+.hero { padding: 48px 44px; border-radius: 20px; background: linear-gradient(135deg, #1a0533 0%, #0f0a2e 50%, #0a0f1e 100%); border: 1px solid #2d1b69; margin-bottom: 32px; position: relative; overflow: hidden; }
+.hero::before { content: ''; position: absolute; top: -80px; right: -80px; width: 350px; height: 350px; background: radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%); border-radius: 50%; }
+.hero-label { font-size: 12px !important; font-weight: 600 !important; letter-spacing: 0.18em; text-transform: uppercase; color: #7c3aed !important; margin-bottom: 14px; }
+.hero-title { font-size: 72px !important; font-weight: 900 !important; color: #f1f5f9 !important; line-height: 1.1; margin-bottom: 14px; letter-spacing: -0.03em; }
+.hero-title span { color: #a78bfa !important; }
+.hero-sub { font-size: 20px !important; color: #64748b !important; font-weight: 400 !important; line-height: 1.7; max-width: 600px; }
+
+/* ── Stat Cards ── */
+.stat-card { background: #111120; border: 1px solid #1e1e30; border-radius: 16px; padding: 26px; margin-bottom: 16px; transition: border-color 0.2s ease, transform 0.2s ease; }
+.stat-card:hover { border-color: #3730a3; transform: translateY(-2px); }
+.stat-label { font-size: 14px !important; font-weight: 600 !important; letter-spacing: 0.12em; text-transform: uppercase; color: #475569 !important; margin-bottom: 10px; }
+.stat-value { font-size: 34px !important; font-weight: 800 !important; color: #f1f5f9 !important; letter-spacing: -0.03em; line-height: 1; }
+.stat-accent { color: #a78bfa !important; }
+
+/* ── Section Headers ── */
+.section-title { font-size: 14px !important; font-weight: 700 !important; letter-spacing: 0.14em; text-transform: uppercase; color: #475569 !important; margin: 36px 0 18px 0; padding-bottom: 10px; border-bottom: 1px solid #1e1e30; }
+
+/* ── Insight Cards ── */
+.insight-card { background: #111120; border: 1px solid #1e1e30; border-radius: 12px; padding: 18px 22px; margin-bottom: 10px; font-size: 18px !important; color: #94a3b8 !important; line-height: 1.7; }
+
+/* ── Low Day Cards ── */
+.low-day-card { background: #110a0a; border: 1px solid #2d1515; border-left: 3px solid #ef4444; border-radius: 12px; padding: 20px 22px; margin-bottom: 12px; }
+.low-day-date { font-size: 14px !important; font-weight: 600 !important; color: #f87171 !important; margin-bottom: 8px; }
+.low-day-score { font-size: 28px !important; font-weight: 800 !important; color: #f1f5f9 !important; letter-spacing: -0.03em; }
+.low-day-meta { font-size: 16px !important; color: #475569 !important; margin-top: 8px; }
+.low-day-notes { font-size: 16px !important; color: #64748b !important; margin-top: 10px; font-style: italic; line-height: 1.6; }
+
+/* ── Success ── */
+div[data-testid="stAlert"] p { font-size: 18px !important; font-weight: 600 !important; }
+
+/* ── Buttons ── */
+.stButton > button { background: #7c3aed; color: white !important; border: none; border-radius: 10px; padding: 13px 28px; font-size: 18px !important; font-weight: 600 !important; transition: all 0.2s ease; width: 100%; }
+.stButton > button:hover { background: #6d28d9; transform: translateY(-1px); }
+
+/* ── Inputs ── */
+.stTextInput input, .stNumberInput input, textarea, .stDateInput input { background: #111120 !important; color: #e2e8f0 !important; border: 1px solid #1e1e30 !important; border-radius: 10px !important; font-size: 18px !important; }
+.stSelectbox > div > div { background: #111120 !important; border: 1px solid #1e1e30 !important; border-radius: 10px !important; color: #e2e8f0 !important; font-size: 18px !important; }
+
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] { background: transparent; border-bottom: 1px solid #1e1e30; }
+.stTabs [data-baseweb="tab"] { font-size: 18px !important; font-weight: 600 !important; color: #475569 !important; padding: 12px 22px; }
+.stTabs [aria-selected="true"] { color: #a78bfa !important; border-bottom: 2px solid #7c3aed !important; font-weight: 700 !important; }
+
+/* ── Native metrics ── */
+[data-testid="metric-container"] { background: #111120; border: 1px solid #1e1e30; border-radius: 14px; padding: 20px; }
+[data-testid="metric-container"] label { color: #475569 !important; font-size: 15px !important; letter-spacing: 0.06em; font-weight: 600 !important; }
+[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #f1f5f9 !important; font-size: 32px !important; font-weight: 800 !important; }
+
+[data-testid="stDataFrame"] { border-radius: 14px; overflow: hidden; border: 1px solid #1e1e30; }
+#snowCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
 </style>
 
-<!-- Snowfall animation -->
 <canvas id="snowCanvas"></canvas>
 <script>
 (function() {
     const canvas = document.getElementById('snowCanvas');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     let W = window.innerWidth, H = window.innerHeight;
     canvas.width = W; canvas.height = H;
-    window.addEventListener('resize', () => {
-        W = window.innerWidth; H = window.innerHeight;
-        canvas.width = W; canvas.height = H;
-    });
-    const flakes = Array.from({length: 80}, () => ({
-        x: Math.random() * W,
-        y: Math.random() * H,
-        r: Math.random() * 3 + 1,
-        speed: Math.random() * 0.8 + 0.3,
-        wind: Math.random() * 0.4 - 0.2,
-        opacity: Math.random() * 0.5 + 0.1
-    }));
+    window.addEventListener('resize', () => { W = window.innerWidth; H = window.innerHeight; canvas.width = W; canvas.height = H; });
+    const flakes = Array.from({length: 55}, () => ({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.5 + 0.5, speed: Math.random() * 0.5 + 0.15, wind: Math.random() * 0.3 - 0.15, opacity: Math.random() * 0.2 + 0.04 }));
     function draw() {
         ctx.clearRect(0, 0, W, H);
         flakes.forEach(f => {
-            ctx.beginPath();
-            ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255,255,255,${f.opacity})`;
-            ctx.fill();
-            f.y += f.speed;
-            f.x += f.wind;
+            ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(167,139,250,${f.opacity})`; ctx.fill();
+            f.y += f.speed; f.x += f.wind;
             if (f.y > H) { f.y = -f.r; f.x = Math.random() * W; }
-            if (f.x > W) f.x = 0;
-            if (f.x < 0) f.x = W;
+            if (f.x > W) f.x = 0; if (f.x < 0) f.x = W;
         });
         requestAnimationFrame(draw);
     }
@@ -166,33 +132,28 @@ section[data-testid="stSidebar"] .nav-link-selected {
 </script>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="hero-section"><div class="big-title">AI Personal Growth Tracker 2026</div><p style="font-size:18px;color:#e2e8f0;margin-top:10px;line-height:1.7;">Track mood, productivity, health, opportunities, and AI-powered behavioral growth patterns.</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="hero"><div class="hero-label">Personal Analytics</div><div class="hero-title">Your Growth,<br><span>Tracked.</span></div><div class="hero-sub">Understand your patterns, catch burnout early, and celebrate the days you showed up.</div></div>', unsafe_allow_html=True)
 
 with st.sidebar:
-    st.markdown("## 🧠 Navigation")
+    st.markdown('<p style="font-size:20px;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:#6d28d9;margin:8px 14px 20px 14px;display:block;">Growth Tracker</p>', unsafe_allow_html=True)
     menu = option_menu(
         menu_title=None,
         options=["Daily Entry", "Dashboard", "AI Insights", "Year Summary"],
-        icons=["pencil-fill", "bar-chart-fill", "robot", "calendar-check-fill"],
+        icons=["pencil", "bar-chart", "cpu", "calendar"],
         default_index=0,
         styles={
-            "container": {"background-color": "transparent"},
-            "icon": {"color": "#4ade80", "font-size": "16px"},
-            "nav-link": {"color": "#dcfce7", "font-size": "15px", "font-weight": "600"},
-            "nav-link-selected": {"color": "white", "font-weight": "800"},
+            "container": {"background-color": "transparent", "padding": "0"},
+            "icon": {"color": "#7c3aed", "font-size": "18px"},
+            "nav-link": {"font-size": "20px", "font-weight": "700", "color": "#ffffff", "padding": "11px 14px"},
+            "nav-link-selected": {"font-weight": "700", "color": "#c4b5fd"},
         }
     )
 
 rows = fetch_entries()
 df = create_dataframe(rows)
 
-# ─────────────────────────────────────────────────────────────
-# DAILY ENTRY
-# ─────────────────────────────────────────────────────────────
-
 if menu == "Daily Entry":
-    st.subheader("📝 Daily Entry")
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Log your day</div>', unsafe_allow_html=True)
     with st.form("entry_form"):
         entry_date = st.date_input("Date", date.today())
         col1, col2, col3 = st.columns(3)
@@ -208,113 +169,91 @@ if menu == "Daily Entry":
             health_status = st.selectbox("Health Status", ["Healthy", "Sick", "Tired", "Stressed"])
             opportunities_gained = st.number_input("Opportunities Gained", 0, 20, 0)
             opportunities_missed = st.number_input("Opportunities Missed", 0, 20, 0)
-        notes = st.text_area("Personal Notes")
-        golden_day = st.checkbox("✨ Mark this as a Golden Day", value=False)
+        notes = st.text_area("Personal Notes", placeholder="How did today feel?")
+        golden_day = st.checkbox("Mark this as a Golden Day", value=False)
         st.markdown("<br>", unsafe_allow_html=True)
-        submit = st.form_submit_button("🚀 Save Entry")
+        submit = st.form_submit_button("Save Entry")
         if submit:
-            growth_score = calculate_growth_score(
-                mood, energy, productivity, sleep_hours, study_hours,
-                int(workout), opportunities_gained, opportunities_missed
-            )
-            insert_entry((
-                str(entry_date), mood, energy, productivity, sleep_hours,
-                study_hours, int(workout), health_status,
-                opportunities_gained, opportunities_missed,
-                notes, int(golden_day), growth_score
-            ))
-            st.success(f"✅ Entry saved successfully. Growth Score: {growth_score}/10")
-
-# ─────────────────────────────────────────────────────────────
-# DASHBOARD
-# ─────────────────────────────────────────────────────────────
+            growth_score = calculate_growth_score(mood, energy, productivity, sleep_hours, study_hours, int(workout), opportunities_gained, opportunities_missed)
+            insert_entry((str(entry_date), mood, energy, productivity, sleep_hours, study_hours, int(workout), health_status, opportunities_gained, opportunities_missed, notes, int(golden_day), growth_score))
+            st.success(f"Saved. Growth Score: {growth_score} / 10")
 
 elif menu == "Dashboard":
-    st.subheader("📊 Dashboard Analytics")
-    st.markdown("<br>", unsafe_allow_html=True)
     if df.empty:
-        st.warning("No data found. Add daily entries first.")
+        st.warning("No data yet. Start with a daily entry.")
     else:
         total_entries = len(df)
         coverage_percent = (total_entries / 365) * 100
-        col1, col2, col3 = st.columns(3)
+        st.markdown('<div class="section-title">Overview</div>', unsafe_allow_html=True)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.markdown(f'<div class="metric-card"><h3>Avg Growth Score</h3><h1>{round(df["growth_score"].mean(),2)}</h1></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="stat-card"><div class="stat-label">Avg Growth Score</div><div class="stat-value stat-accent">{round(df["growth_score"].mean(),1)}</div></div>', unsafe_allow_html=True)
         with col2:
-            st.markdown(f'<div class="metric-card"><h3>Days Tracked</h3><h1>{total_entries}</h1></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="stat-card"><div class="stat-label">Days Tracked</div><div class="stat-value">{total_entries}</div></div>', unsafe_allow_html=True)
         with col3:
-            st.markdown(f'<div class="metric-card"><h3>Year Coverage</h3><h1>{coverage_percent:.1f}%</h1></div>', unsafe_allow_html=True)
-        col4, col5, col6 = st.columns(3)
+            st.markdown(f'<div class="stat-card"><div class="stat-label">Year Coverage</div><div class="stat-value">{coverage_percent:.0f}%</div></div>', unsafe_allow_html=True)
         with col4:
-            st.metric("🔥 Avg Productivity", round(df["productivity"].mean(), 2))
-        with col5:
-            st.metric("⚡ Avg Energy", round(df["energy"].mean(), 2))
-        with col6:
-            st.metric("😴 Avg Sleep", round(df["sleep_hours"].mean(), 2))
-        st.markdown("<br>", unsafe_allow_html=True)
-        tab1, tab2, tab3 = st.tabs(["📈 Graphs", "📋 Entries", "🧠 Analysis"])
+            st.markdown(f'<div class="stat-card"><div class="stat-label">Avg Sleep</div><div class="stat-value">{round(df["sleep_hours"].mean(),1)}h</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Analytics</div>', unsafe_allow_html=True)
+        tab1, tab2, tab3 = st.tabs(["Charts", "Entries", "Analysis"])
         with tab1:
             for title, fig_obj in [
-                ("📈 Growth Progression", px.line(df, x="date", y="growth_score", markers=True)),
-                ("😐 Mood Distribution", px.histogram(df, x="mood", nbins=10)),
-                ("🔥 Productivity vs Sleep", px.scatter(df, x="sleep_hours", y="productivity", size="growth_score", color="growth_score", hover_data=["date"], opacity=0.7)),
-                ("📅 Weekday Performance", px.bar(df.groupby("weekday")["growth_score"].mean().reset_index(), x="weekday", y="growth_score")),
+                ("Growth over time", px.line(df, x="date", y="growth_score", markers=True)),
+                ("Mood distribution", px.histogram(df, x="mood", nbins=10)),
+                ("Productivity vs Sleep", px.scatter(df, x="sleep_hours", y="productivity", size="growth_score", color="growth_score", hover_data=["date"], opacity=0.8)),
+                ("Weekday performance", px.bar(df.groupby("weekday")["growth_score"].mean().reset_index(), x="weekday", y="growth_score")),
             ]:
-                st.subheader(title)
-                fig_obj.update_layout(template="plotly_dark", paper_bgcolor="#111827", plot_bgcolor="#111827", font=dict(color="white"))
+                st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
+                fig_obj.update_layout(template="plotly_dark", paper_bgcolor="#111120", plot_bgcolor="#111120", font=dict(color="#94a3b8", family="Inter", size=13), margin=dict(l=0, r=0, t=10, b=0))
                 st.plotly_chart(fig_obj, use_container_width=True)
         with tab2:
-            st.subheader("📋 Daily Entries Log")
             display_df = df[["date","mood","energy","productivity","sleep_hours","study_hours","growth_score","health_status"]].copy()
-            display_df.columns = ["Date","Mood","Energy","Productivity","Sleep","Study","Growth Score","Health"]
+            display_df.columns = ["Date","Mood","Energy","Productivity","Sleep","Study","Score","Health"]
             st.dataframe(display_df.sort_values("Date", ascending=False), use_container_width=True, height=500)
         with tab3:
-            st.info("Your analytics and growth patterns are improving over time.")
-
-# ─────────────────────────────────────────────────────────────
-# AI INSIGHTS
-# ─────────────────────────────────────────────────────────────
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Avg Productivity", round(df["productivity"].mean(), 2))
+            with col2:
+                st.metric("Avg Energy", round(df["energy"].mean(), 2))
+            with col3:
+                st.metric("Avg Mood", round(df["mood"].mean(), 2))
+            st.markdown('<div class="section-title">Behaviour patterns</div>', unsafe_allow_html=True)
+            st.info("Workout days vs non-workout, sleep impact, opportunity utilization — add more entries to unlock deeper patterns.")
 
 elif menu == "AI Insights":
-    st.subheader("🧠 AI Behavioral Insights")
     if df.empty:
         st.warning("No data available.")
     else:
-        with st.spinner("Generating AI insights..."):
+        with st.spinner("Analysing your patterns..."):
             latest_note = df.iloc[-1]["notes"]
             sentiment, polarity = analyze_sentiment(latest_note)
             burnout_risk = detect_burnout_risk(df)
             predicted_score = predict_next_growth(df)
+        st.markdown('<div class="section-title">At a glance</div>', unsafe_allow_html=True)
         col1, col2, col3 = st.columns(3)
-        col1.metric("😊 Latest Note Sentiment", sentiment)
-        col2.metric("⚠️ Burnout Risk", burnout_risk)
-        col3.metric("📈 Predicted Next Growth", predicted_score if predicted_score else "Need more data")
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.subheader("🧠 AI Pattern Insights")
+        col1.metric("Sentiment", sentiment)
+        col2.metric("Burnout Risk", burnout_risk)
+        col3.metric("Predicted Score", predicted_score if predicted_score else "Need more data")
+        st.markdown('<div class="section-title">Pattern insights</div>', unsafe_allow_html=True)
         for insight in generate_behavior_insights(df):
-            st.markdown(f"<div class='insight-box'>{insight}</div>", unsafe_allow_html=True)
-        st.subheader("🔴 Your Low Days")
+            st.markdown(f'<div class="insight-card">{insight}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Your low days</div>', unsafe_allow_html=True)
         low_days = get_low_days(df)
         if low_days.empty:
-            st.success("No low days found.")
+            st.success("No low days found. You have been doing great.")
         else:
             for _, row in low_days.iterrows():
                 score = row["growth_score"]
                 day_date = row["date"].date()
-                mood = row["mood"]
-                energy = row["energy"]
                 notes = row["notes"] if row["notes"] else "No notes written."
-                st.markdown(f'<div style="background:#1e293b;border-left:4px solid #ff4d6d;border-radius:18px;padding:18px;margin-bottom:14px;color:white;"><h4>📅 {day_date}</h4><p>Growth Score: <b>{score}/10</b></p><p>Mood: {mood}/10 | Energy: {energy}/10</p><p>"{notes}"</p></div>', unsafe_allow_html=True)
-        st.subheader("💡 AI Recommendations")
+                st.markdown(f'<div class="low-day-card"><div class="low-day-date">{day_date}</div><div class="low-day-score">{score}<span style="font-size:16px;font-weight:400;color:#475569;"> / 10</span></div><div class="low-day-meta">Mood {row["mood"]} / 10 &nbsp;·&nbsp; Energy {row["energy"]} / 10</div><div class="low-day-notes">{notes}</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Recommendations</div>', unsafe_allow_html=True)
         for advice in generate_ai_advice(sentiment, burnout_risk, predicted_score):
             st.info(advice)
 
-# ─────────────────────────────────────────────────────────────
-# YEAR SUMMARY
-# ─────────────────────────────────────────────────────────────
-
 elif menu == "Year Summary":
-    st.subheader("📅 Your Yearly Growth Journey")
+    st.markdown('<div class="section-title">2026 at a glance</div>', unsafe_allow_html=True)
     if df.empty:
         st.warning("No data available.")
     else:
